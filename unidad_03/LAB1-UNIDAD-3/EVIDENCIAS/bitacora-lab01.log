@@ -1,0 +1,195 @@
+2026-11-09 00:02:06.984 CST [23388] user= db= app= client= LOG:  empezando checkpoint: time
+2026-11-09 00:02:08.052 CST [23388] user= db= app= client= LOG:  checkpoint completo: escritos 10 búfers (0.1%); 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=0.994 s, sync=0.041 s, total=1.068 s; archivos sincronizados=10, más largo=0.007 s, promedio=0.005 s; distancia=22 kB, estimación=2705 kB; lsn=0/1F466B0, lsn de redo=0/1F46658
+2026-11-09 00:11:38.404 CST [26900] user=postgres db=comercial app=psql client=::1 LOG:  sentencia: CREATE SCHEMA IF NOT EXISTS auditoria;
+2026-11-09 00:11:38.414 CST [26900] user=postgres db=comercial app=psql client=::1 LOG:  sentencia: REVOKE ALL ON SCHEMA auditoria FROM PUBLIC;
+2026-11-09 00:11:38.424 CST [26900] user=postgres db=comercial app=psql client=::1 LOG:  sentencia: CREATE TABLE IF NOT EXISTS auditoria.cambios_clientes (
+\t    id BIGSERIAL PRIMARY KEY,
+\t    fecha_evento TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+\t    usuario_sesion TEXT,
+\t    usuario_efectivo TEXT,
+\t    aplicacion TEXT,
+\t    ip_cliente INET,
+\t    operacion TEXT,
+\t    id_cliente BIGINT,
+\t    valores_antes JSONB,
+\t    valores_despues JSONB
+\t);
+2026-11-09 00:12:06.076 CST [23388] user= db= app= client= LOG:  empezando checkpoint: time
+2026-11-09 00:12:11.033 CST [23388] user= db= app= client= LOG:  checkpoint completo: escritos 44 búfers (0.3%); 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=4.746 s, sync=0.145 s, total=4.957 s; archivos sincronizados=40, más largo=0.005 s, promedio=0.004 s; distancia=149 kB, estimación=2449 kB; lsn=0/1F6BB00, lsn de redo=0/1F6BAA8
+2026-11-09 00:16:21.256 CST [26900] user=postgres db=comercial app=psql client=::1 LOG:  sentencia: CREATE OR REPLACE FUNCTION auditoria.registrar_cambio_cliente()
+\tRETURNS TRIGGER
+\tLANGUAGE plpgsql
+\tSECURITY DEFINER
+\tSET search_path = pg_catalog, public
+\tAS $$
+\tBEGIN
+\t    INSERT INTO auditoria.cambios_clientes (
+\t        usuario_sesion,
+\t        usuario_efectivo,
+\t        aplicacion,
+\t        ip_cliente,
+\t        operacion,
+\t        id_cliente,
+\t        valores_antes,
+\t        valores_despues
+\t    )
+\t    VALUES (
+\t        session_user,
+\t        current_user,
+\t        current_setting('application_name'),
+\t        inet_client_addr(),
+\t        TG_OP,
+\t        CASE
+\t            WHEN TG_OP = 'DELETE' THEN OLD.id
+\t            ELSE NEW.id
+\t        END,
+\t        CASE
+\t            WHEN TG_OP IN ('UPDATE', 'DELETE')
+\t            THEN to_jsonb(OLD)
+\t            ELSE NULL
+\t        END,
+\t        CASE
+\t            WHEN TG_OP IN ('INSERT', 'UPDATE')
+\t            THEN to_jsonb(NEW)
+\t            ELSE NULL
+\t        END
+\t    );
+\t
+\t    RETURN COALESCE(NEW, OLD);
+\tEND;
+\t$$;
+2026-11-09 00:16:21.299 CST [26900] user=postgres db=comercial app=psql client=::1 LOG:  sentencia: REVOKE ALL ON FUNCTION auditoria.registrar_cambio_cliente()
+\tFROM PUBLIC;
+2026-11-09 00:16:23.240 CST [26900] user=postgres db=comercial app=psql client=::1 LOG:  sentencia: CREATE TRIGGER trg_auditoria_clientes
+\tAFTER INSERT OR UPDATE OR DELETE
+\tON public.clientes
+\tFOR EACH ROW
+\tEXECUTE FUNCTION auditoria.registrar_cambio_cliente();
+2026-11-09 00:17:06.055 CST [23388] user= db= app= client= LOG:  empezando checkpoint: time
+2026-11-09 00:17:08.370 CST [23388] user= db= app= client= LOG:  checkpoint completo: escritos 21 búfers (0.1%); 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=2.211 s, sync=0.051 s, total=2.316 s; archivos sincronizados=14, más largo=0.005 s, promedio=0.004 s; distancia=60 kB, estimación=2210 kB; lsn=0/1F7AE68, lsn de redo=0/1F7AE10
+2026-11-09 00:22:06.390 CST [23388] user= db= app= client= LOG:  empezando checkpoint: time
+2026-11-09 00:22:07.490 CST [23388] user= db= app= client= LOG:  checkpoint completo: escritos 10 búfers (0.1%); 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=0.997 s, sync=0.035 s, total=1.100 s; archivos sincronizados=9, más largo=0.009 s, promedio=0.004 s; distancia=2 kB, estimación=1989 kB; lsn=0/1F7B740, lsn de redo=0/1F7B6E8
+2026-11-09 00:28:45.219 CST [26900] user=postgres db=comercial app=psql client=::1 ERROR:  permiso denegado al esquema auditoria en carÃ¡cter 22
+2026-11-09 00:28:45.219 CST [26900] user=postgres db=comercial app=psql client=::1 SENTENCIA:  SELECT COUNT(*)
+\tFROM auditoria.cambios_clientes;
+2026-11-09 00:37:06.532 CST [23388] user= db= app= client= LOG:  empezando checkpoint: time
+2026-11-09 00:37:07.431 CST [23388] user= db= app= client= LOG:  checkpoint completo: escritos 8 búfers (0.0%); 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=0.771 s, sync=0.066 s, total=0.900 s; archivos sincronizados=8, más largo=0.042 s, promedio=0.009 s; distancia=3 kB, estimación=1791 kB; lsn=0/1F7C590, lsn de redo=0/1F7C538
+2026-11-09 21:55:16.835 CST [26900] user=postgres db=comercial app=psql client=::1 LOG:  sentencia: DROP VIEW IF EXISTS dba.bitacora;
+2026-11-09 21:55:19.908 CST [26900] user=postgres db=comercial app=psql client=::1 LOG:  sentencia: CREATE VIEW dba.bitacora AS
+\tSELECT
+\t    row_number() OVER () AS num,
+\t    linea
+\tFROM regexp_split_to_table(
+\t    convert_from(
+\t        pg_read_binary_file(pg_current_logfile()),
+\t        'WIN1252'
+\t    ),
+\t    E'\\n'
+\t) AS linea;
+2026-11-09 21:55:22.076 CST [23388] user= db= app= client= LOG:  empezando checkpoint: time
+2026-11-09 21:55:24.678 CST [23388] user= db= app= client= LOG:  checkpoint completo: escritos 24 búfers (0.1%); 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=2.526 s, sync=0.043 s, total=2.603 s; archivos sincronizados=17, más largo=0.004 s, promedio=0.003 s; distancia=119 kB, estimación=1624 kB; lsn=0/1F9A2E0, lsn de redo=0/1F9A250
+2026-11-09 21:58:00.725 CST [26900] user=postgres db=comercial app=psql client=::1 LOG:  sentencia: CREATE OR REPLACE VIEW dba.bitacora AS
+\tSELECT
+\t    row_number() OVER () AS num,
+\t    linea
+\tFROM regexp_split_to_table(
+\t    convert_from(
+\t        pg_read_binary_file(pg_current_logfile()),
+\t        'WIN1252'
+\t    ),
+\t    E'\\r?\\n'
+\t) AS linea;
+2026-11-09 22:00:22.685 CST [23388] user= db= app= client= LOG:  empezando checkpoint: time
+2026-11-09 22:00:23.414 CST [23388] user= db= app= client= LOG:  checkpoint completo: escritos 7 búfers (0.0%); 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=0.665 s, sync=0.026 s, total=0.730 s; archivos sincronizados=7, más largo=0.008 s, promedio=0.004 s; distancia=32 kB, estimación=1464 kB; lsn=0/1FA2320, lsn de redo=0/1FA22C8
+2026-11-09 22:31:51.701 CST [31284] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=61597
+2026-11-09 22:31:51.739 CST [31284] user=app_ventas db=comercial app=[desconocido] client=127.0.0.1 FATAL:  la autentificación password falló para el usuario «app_ventas»
+2026-11-09 22:31:51.739 CST [31284] user=app_ventas db=comercial app=[desconocido] client=127.0.0.1 DETALLE:  La conexión coincidió con el archivo «C:/Program Files/PostgreSQL/17/data/pg_hba.conf» línea 115: «host    all             all             127.0.0.1/32            scram-sha-256»
+2026-11-09 22:33:10.373 CST [24396] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=57657
+2026-11-09 22:33:10.390 CST [24396] user=soporte_ana db=comercial app=[desconocido] client=127.0.0.1 FATAL:  la autentificación password falló para el usuario «soporte_ana»
+2026-11-09 22:33:10.390 CST [24396] user=soporte_ana db=comercial app=[desconocido] client=127.0.0.1 DETALLE:  La conexión coincidió con el archivo «C:/Program Files/PostgreSQL/17/data/pg_hba.conf» línea 115: «host    all             all             127.0.0.1/32            scram-sha-256»
+2026-11-09 22:34:00.091 CST [20300] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=57658
+2026-11-09 22:35:23.870 CST [20984] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=62630
+2026-11-09 22:35:23.886 CST [20984] user=app_ventas db=comercial app=[desconocido] client=127.0.0.1 LOG:  conexión autenticada: identidad=«app_ventas» método=scram-sha-256 (C:/Program Files/PostgreSQL/17/data/pg_hba.conf:115)
+2026-11-09 22:35:23.886 CST [20984] user=app_ventas db=comercial app=[desconocido] client=127.0.0.1 LOG:  conexión autorizada: usuario=app_ventas base_de_datos=comercial nombre_de_aplicación=psql
+2026-11-09 22:35:24.000 CST [20984] user=app_ventas db=comercial app=psql client=127.0.0.1 LOG:  desconexiÃ³n: duraciÃ³n de sesiÃ³n: 0:00:00.142 usuario=app_ventas base=comercial host=127.0.0.1 port=62630
+2026-11-09 22:50:22.477 CST [23388] user= db= app= client= LOG:  empezando checkpoint: time
+2026-11-09 22:50:22.644 CST [23388] user= db= app= client= LOG:  checkpoint completo: escritos 1 búfers (0.0%); 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=0.120 s, sync=0.005 s, total=0.205 s; archivos sincronizados=1, más largo=0.005 s, promedio=0.005 s; distancia=7 kB, estimación=1319 kB; lsn=0/1FA4268, lsn de redo=0/1FA4210
+2026-11-09 22:54:19.765 CST [31512] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=58892
+2026-11-09 22:54:22.866 CST [22240] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=58893
+2026-11-09 22:54:32.970 CST [24988] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=49275
+2026-11-09 22:54:37.206 CST [7772] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=62838
+2026-11-09 22:54:37.266 CST [7772] user=app_ventas db=comercial app=[desconocido] client=127.0.0.1 LOG:  conexión autenticada: identidad=«app_ventas» método=scram-sha-256 (C:/Program Files/PostgreSQL/17/data/pg_hba.conf:115)
+2026-11-09 22:54:37.266 CST [7772] user=app_ventas db=comercial app=[desconocido] client=127.0.0.1 LOG:  conexión autorizada: usuario=app_ventas base_de_datos=comercial nombre_de_aplicación=psql
+2026-11-09 22:54:37.339 CST [7772] user=app_ventas db=comercial app=psql client=127.0.0.1 LOG:  desconexiÃ³n: duraciÃ³n de sesiÃ³n: 0:00:00.153 usuario=app_ventas base=comercial host=127.0.0.1 port=62838
+2026-11-09 22:54:41.373 CST [15164] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=62839
+2026-11-09 22:54:42.403 CST [19504] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=62840
+2026-11-09 22:55:15.357 CST [6228] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=62844
+2026-11-09 22:55:19.246 CST [25144] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=62845
+2026-11-09 22:55:19.265 CST [25144] user=app_ventas db=comercial app=[desconocido] client=127.0.0.1 LOG:  conexión autenticada: identidad=«app_ventas» método=scram-sha-256 (C:/Program Files/PostgreSQL/17/data/pg_hba.conf:115)
+2026-11-09 22:55:19.265 CST [25144] user=app_ventas db=comercial app=[desconocido] client=127.0.0.1 LOG:  conexión autorizada: usuario=app_ventas base_de_datos=comercial nombre_de_aplicación=psql
+2026-11-09 22:55:19.306 CST [25144] user=app_ventas db=comercial app=psql client=127.0.0.1 LOG:  desconexiÃ³n: duraciÃ³n de sesiÃ³n: 0:00:00.077 usuario=app_ventas base=comercial host=127.0.0.1 port=62845
+2026-11-09 22:55:22.657 CST [23388] user= db= app= client= LOG:  empezando checkpoint: time
+2026-11-09 22:55:23.221 CST [23388] user= db= app= client= LOG:  checkpoint completo: escritos 5 búfers (0.0%); 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=0.457 s, sync=0.025 s, total=0.565 s; archivos sincronizados=5, más largo=0.010 s, promedio=0.005 s; distancia=3 kB, estimación=1187 kB; lsn=0/1FA5150, lsn de redo=0/1FA50F8
+2026-11-09 22:56:50.835 CST [26900] user=postgres db=comercial app=psql client=::1 LOG:  sentencia: ALTER SYSTEM SET log_statement = 'mod';
+2026-11-09 22:58:28.834 CST [32752] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=54272
+2026-11-09 22:58:32.236 CST [26268] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=54273
+2026-11-09 22:58:32.255 CST [26268] user=app_ventas db=comercial app=[desconocido] client=127.0.0.1 LOG:  conexión autenticada: identidad=«app_ventas» método=scram-sha-256 (C:/Program Files/PostgreSQL/17/data/pg_hba.conf:115)
+2026-11-09 22:58:32.255 CST [26268] user=app_ventas db=comercial app=[desconocido] client=127.0.0.1 LOG:  conexión autorizada: usuario=app_ventas base_de_datos=comercial nombre_de_aplicación=psql
+2026-11-09 22:58:32.260 CST [26268] user=app_ventas db=comercial app=psql client=127.0.0.1 LOG:  sentencia: UPDATE clientes SET rfc = 'GAMA780912ZZZ' WHERE id = 3;
+2026-11-09 22:58:32.268 CST [26268] user=app_ventas db=comercial app=psql client=127.0.0.1 LOG:  desconexiÃ³n: duraciÃ³n de sesiÃ³n: 0:00:00.049 usuario=app_ventas base=comercial host=127.0.0.1 port=54273
+2026-11-09 23:00:22.941 CST [23388] user= db= app= client= LOG:  empezando checkpoint: time
+2026-11-09 23:00:23.481 CST [23388] user= db= app= client= LOG:  checkpoint completo: escritos 5 búfers (0.0%); 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=0.450 s, sync=0.060 s, total=0.541 s; archivos sincronizados=5, más largo=0.043 s, promedio=0.012 s; distancia=4 kB, estimación=1069 kB; lsn=0/1FA6390, lsn de redo=0/1FA6338
+2026-11-09 23:03:59.031 CST [28168] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=53456
+2026-11-09 23:04:02.647 CST [31880] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=53458
+2026-11-09 23:04:02.671 CST [31880] user=soporte_ana db=comercial app=[desconocido] client=127.0.0.1 LOG:  conexión autenticada: identidad=«soporte_ana» método=scram-sha-256 (C:/Program Files/PostgreSQL/17/data/pg_hba.conf:115)
+2026-11-09 23:04:02.671 CST [31880] user=soporte_ana db=comercial app=[desconocido] client=127.0.0.1 LOG:  conexión autorizada: usuario=soporte_ana base_de_datos=comercial nombre_de_aplicación=psql
+2026-11-09 23:04:02.702 CST [31880] user=soporte_ana db=comercial app=psql client=127.0.0.1 LOG:  sentencia: DELETE FROM clientes WHERE id = 5;
+2026-11-09 23:04:02.710 CST [31880] user=soporte_ana db=comercial app=psql client=127.0.0.1 ERROR:  permiso denegado a la tabla clientes
+2026-11-09 23:04:02.710 CST [31880] user=soporte_ana db=comercial app=psql client=127.0.0.1 SENTENCIA:  DELETE FROM clientes WHERE id = 5;
+2026-11-09 23:04:02.713 CST [31880] user=soporte_ana db=comercial app=psql client=127.0.0.1 LOG:  desconexiÃ³n: duraciÃ³n de sesiÃ³n: 0:00:00.080 usuario=soporte_ana base=comercial host=127.0.0.1 port=53458
+2026-11-09 23:06:18.814 CST [26900] user=postgres db=comercial app=psql client=::1 LOG:  sentencia: DROP ROLE soporte_ana;
+2026-11-09 23:06:18.827 CST [26900] user=postgres db=comercial app=psql client=::1 ERROR:  no se puede eliminar el rol Â«soporte_anaÂ» porque otros objetos dependen de Ã©l
+2026-11-09 23:06:18.827 CST [26900] user=postgres db=comercial app=psql client=::1 DETALLE:  privilegios para esquema public
+\tprivilegios para base de datos comercial
+\tprivilegios para tabla clientes
+2026-11-09 23:06:18.827 CST [26900] user=postgres db=comercial app=psql client=::1 SENTENCIA:  DROP ROLE soporte_ana;
+2026-11-09 23:12:45.222 CST [32812] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=60397
+2026-11-09 23:12:50.425 CST [32216] user=[desconocido] db=[desconocido] app=[desconocido] client=127.0.0.1 LOG:  conexión recibida: host=127.0.0.1 port=60398
+2026-11-09 23:12:50.484 CST [32216] user=soporte_ana db=comercial app=[desconocido] client=127.0.0.1 LOG:  conexión autenticada: identidad=«soporte_ana» método=scram-sha-256 (C:/Program Files/PostgreSQL/17/data/pg_hba.conf:115)
+2026-11-09 23:12:50.484 CST [32216] user=soporte_ana db=comercial app=[desconocido] client=127.0.0.1 LOG:  conexión autorizada: usuario=soporte_ana base_de_datos=comercial nombre_de_aplicación=psql
+2026-11-09 23:14:20.627 CST [32216] user=soporte_ana db=comercial app=psql client=127.0.0.1 LOG:  desconexiÃ³n: duraciÃ³n de sesiÃ³n: 0:01:30.224 usuario=soporte_ana base=comercial host=127.0.0.1 port=60398
+2026-11-09 23:20:22.496 CST [23388] user= db= app= client= LOG:  empezando checkpoint: time
+2026-11-09 23:20:22.961 CST [23388] user= db= app= client= LOG:  checkpoint completo: escritos 3 búfers (0.0%); 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=0.327 s, sync=0.049 s, total=0.465 s; archivos sincronizados=3, más largo=0.042 s, promedio=0.017 s; distancia=7 kB, estimación=963 kB; lsn=0/1FA8280, lsn de redo=0/1FA8228
+2026-11-09 23:25:22.972 CST [23388] user= db= app= client= LOG:  empezando checkpoint: time
+2026-11-09 23:25:23.157 CST [23388] user= db= app= client= LOG:  checkpoint completo: escritos 1 búfers (0.0%); 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=0.112 s, sync=0.008 s, total=0.185 s; archivos sincronizados=1, más largo=0.008 s, promedio=0.008 s; distancia=7 kB, estimación=867 kB; lsn=0/1FA9EB8, lsn de redo=0/1FA9E60
+2026-11-09 23:50:17.118 CST [26900] user=postgres db=comercial app=psql client=::1 ERROR:  error de sintaxis en o cerca de Â«#Â» en carÃ¡cter 1
+2026-11-09 23:50:17.118 CST [26900] user=postgres db=comercial app=psql client=::1 SENTENCIA:  # Evidencia 13 - ManipulaciÂ¢n de la auditorÂ¡a
+\t## 1. Objetivo
+\tComprobar quâ€š tan protegidos estÂ n los registros de auditorÂ¡a en PostgreSQL, verificando si los usuarios de la aplicaciÂ¢n pueden modificarlos o eliminarlos y analizando los riesgos que existen cuando un usuario con privilegios elevados puede alterar el mecanismo de auditorÂ¡a.
+\t## 2. Procedimiento
+\tPara esta actividad se utiliza la base de datos `comercial`, que contiene la tabla `clientes` y el esquema `auditoria`, donde se almacenan los cambios realizados.
+\tPrimero se revisan los permisos del usuario `app_ventas` para comprobar si tiene acceso al esquema y si puede consultar, modificar o eliminar registros de `auditoria.cambios_clientes`.
+\tDespuâ€šs se analiza el funcionamiento del disparador `trg_auditoria_clientes` y las consecuencias que tendrÂ¡a desactivarlo.
+\tFinalmente, se evalÂ£an los riesgos de permitir que un administrador modifique los registros de auditorÂ¡a y quâ€š medidas adicionales podrÂ¡an utilizarse para protegerlos.
+\t## 3. Resultados
+\t### 3.1. Permisos de app_ventas
+\t*Pendiente de incorporar el resultado de la consulta de permisos.*
+\t### 3.2. ProtecciÂ¢n de los registros de auditorÂ¡a
+\tEn las actividades anteriores se comprobÂ¢ que `app_ventas` no puede consultar directamente el esquema `auditoria`.
+\tTambiâ€šn se verificÂ¢ que la funciÂ¢n de auditorÂ¡a utiliza `SECURITY DEFINER`, por lo que puede registrar cambios sin otorgar acceso directo a los usuarios de la aplicaciÂ¢n.
+\t### 3.3. Estado del disparador
+\tSe comprobÂ¢ que el disparador `trg_auditoria_clientes` estÂ  habilitado, ya que la consulta a `pg_trigger` devolviÂ¢ el estado `O`.
+\tEsto significa que el mecanismo de auditorÂ¡a estÂ  activo para las operaciones normales sobre `clientes`.
+\t*Pendiente de documentar las pruebas adicionales de manipulaciÂ¢n que correspondan a la guÂ¡a.*
+\t## 4. Preguntas de anÂ lisis
+\t*AquÂ¡ se incorporarÂ n las preguntas exactas de la Actividad 14 y sus respuestas, una vez terminadas las pruebas.*
+\t## 5. AnÂ lisis
+\tHasta este punto se comprobÂ¢ que los usuarios de la aplicaciÂ¢n tienen restricciones para acceder directamente a los registros de auditorÂ¡a.
+\tEsto es importante porque, si cualquier usuario pudiera modificar o eliminar esos registros, serÂ¡a posible ocultar operaciones realizadas sobre los clientes.
+\tSin embargo, tambiâ€šn es necesario considerar los privilegios de los administradores, ya que una auditorÂ¡a almacenada dentro de la misma base de datos no estÂ  completamente protegida frente a usuarios con control elevado sobre el servidor.
+\t## 6. ConclusiÂ¢n
+\tSELECT
+\t    has_schema_privilege('app_ventas', 'auditoria', 'USAGE') AS acceso_esquema,
+\t    has_table_privilege('app_ventas', 'auditoria.cambios_clientes', 'SELECT') AS puede_consultar,
+\t    has_table_privilege('app_ventas', 'auditoria.cambios_clientes', 'UPDATE') AS puede_modificar,
+\t    has_table_privilege('app_ventas', 'auditoria.cambios_clientes', 'DELETE') AS puede_eliminar;
